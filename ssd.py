@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
 from layers import *
 from data import voc, coco
 import os
@@ -31,7 +30,7 @@ class SSD(nn.Module):
         self.num_classes = num_classes
         self.cfg = (coco, voc)[num_classes == 21]
         self.priorbox = PriorBox(self.cfg)
-        self.priors = Variable(self.priorbox.forward(), volatile=True)
+        self.priors = self.priorbox.forward(requires_grad=False)
         self.size = size
 
         # SSD network
@@ -45,7 +44,7 @@ class SSD(nn.Module):
 
         if phase == 'test':
             self.softmax = nn.Softmax(dim=-1)
-            self.detect = Detect(num_classes, 0, 200, 0.01, 0.45)
+            self.detect = Detect(num_classes, 0, 200, 0.01, 0.45).forward
 
     def forward(self, x):
         """Applies network layers and ops on input image(s) x.
@@ -66,6 +65,7 @@ class SSD(nn.Module):
                     2: localization layers, Shape: [batch,num_priors*4]
                     3: priorbox layers, Shape: [2,num_priors*4]
         """
+        print(x.shape)
         sources = list()
         loc = list()
         conf = list()
@@ -74,13 +74,19 @@ class SSD(nn.Module):
         for k in range(23):
             x = self.vgg[k](x)
 
+        print(x.shape)
+
         s = self.L2Norm(x)
         sources.append(s)
+
+        print(s.shape)
 
         # apply vgg up to fc7
         for k in range(23, len(self.vgg)):
             x = self.vgg[k](x)
         sources.append(x)
+
+        print(x.shape)
 
         # apply extra layers and cache source layer outputs
         for k, v in enumerate(self.extras):
@@ -88,13 +94,20 @@ class SSD(nn.Module):
             if k % 2 == 1:
                 sources.append(x)
 
+        print(x.shape)
+
         # apply multibox head to source layers
         for (x, l, c) in zip(sources, self.loc, self.conf):
             loc.append(l(x).permute(0, 2, 3, 1).contiguous())
             conf.append(c(x).permute(0, 2, 3, 1).contiguous())
 
+        # flatten all features and accumulate them
         loc = torch.cat([o.view(o.size(0), -1) for o in loc], 1)
         conf = torch.cat([o.view(o.size(0), -1) for o in conf], 1)
+
+        print('loc.shape:', loc.shape)
+        print('conf.shape:', conf.shape)
+
         if self.phase == "test":
             output = self.detect(
                 loc.view(loc.size(0), -1, 4),                   # loc preds
