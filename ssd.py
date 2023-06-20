@@ -65,7 +65,6 @@ class SSD(nn.Module):
                     2: localization layers, Shape: [batch,num_priors*4]
                     3: priorbox layers, Shape: [2,num_priors*4]
         """
-        print(x.shape)
         sources = list()
         loc = list()
         conf = list()
@@ -74,27 +73,19 @@ class SSD(nn.Module):
         for k in range(23):
             x = self.vgg[k](x)
 
-        print(x.shape)
-
         s = self.L2Norm(x)
         sources.append(s)
-
-        print(s.shape)
 
         # apply vgg up to fc7
         for k in range(23, len(self.vgg)):
             x = self.vgg[k](x)
         sources.append(x)
 
-        print(x.shape)
-
         # apply extra layers and cache source layer outputs
         for k, v in enumerate(self.extras):
             x = F.relu(v(x), inplace=True)
             if k % 2 == 1:
                 sources.append(x)
-
-        print(x.shape)
 
         # apply multibox head to source layers
         for (x, l, c) in zip(sources, self.loc, self.conf):
@@ -104,9 +95,6 @@ class SSD(nn.Module):
         # flatten all features and accumulate them
         loc = torch.cat([o.view(o.size(0), -1) for o in loc], 1)
         conf = torch.cat([o.view(o.size(0), -1) for o in conf], 1)
-
-        print('loc.shape:', loc.shape)
-        print('conf.shape:', conf.shape)
 
         if self.phase == "test":
             output = self.detect(

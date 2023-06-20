@@ -200,8 +200,6 @@ def nms(boxes, scores, overlap=0.5, top_k=200):
     xx2 = boxes.new()
     yy2 = boxes.new()
     w = boxes.new()
-    print(w.numel())
-    print(w.shape)
     h = boxes.new()
 
     # keep = torch.Tensor()
@@ -219,18 +217,15 @@ def nms(boxes, scores, overlap=0.5, top_k=200):
         yy1 = torch.index_select(y1, 0, idx)
         xx2 = torch.index_select(x2, 0, idx)
         yy2 = torch.index_select(y2, 0, idx)
-        print('xx1', xx1.shape)
         # store element-wise max with next highest score
         xx1 = torch.clamp(xx1, min=x1[i])
         yy1 = torch.clamp(yy1, min=y1[i])
         xx2 = torch.clamp(xx2, max=x2[i])
         yy2 = torch.clamp(yy2, max=y2[i])
-        print('xx1', xx1.shape)
         # w.reshape_as(xx2)
         # h.reshape_as(yy2)
         w = xx2 - xx1
         h = yy2 - yy1
-        print('w', w.shape)
         # check sizes of xx1 and xx2.. after each iteration
         w = torch.clamp(w, min=0.0)
         h = torch.clamp(h, min=0.0)

@@ -31,38 +31,26 @@ class Detect(Function):
             prior_data: (tensor) Prior boxes and variances from priorbox layers
                 Shape: [1,num_priors,4]
         """
-        print('loc_data.shape', loc_data.shape)
-        print('conf_data.shape', conf_data.shape)
-        print('prior_data.shape', prior_data.shape)
         num = loc_data.size(0)  # batch size
         num_priors = prior_data.size(0) # num_boxes
         output = torch.zeros(num, self.num_classes, self.top_k, 5)
         conf_preds = conf_data.view(num, num_priors,
                                     self.num_classes).transpose(2, 1)
-        print('conf_preds', conf_preds.shape)
 
         # Decode predictions into bboxes.
         for i in range(num):
             decoded_boxes = decode(loc_data[i], prior_data, self.variance)
-            print('decoded_boxes', decoded_boxes.shape)
             # For each class, perform nms
             conf_scores = conf_preds[i].clone()
-            print('conf_scores', conf_scores.shape)
 
             for cl in range(1, self.num_classes):
                 c_mask = conf_scores[cl].gt(self.conf_thresh)
-                print('conf_scores', conf_scores.shape)
                 scores = conf_scores[cl][c_mask]
-                print('scores', scores.shape)
                 if scores.size(0) == 0:
                     continue
                 l_mask = c_mask.unsqueeze(1).expand_as(decoded_boxes)
-                print('l_mask', l_mask.shape)
                 boxes = decoded_boxes[l_mask].view(-1, 4)
-                print('boxes', boxes.shape)
                 # idx of highest scoring and non-overlapping boxes per class
-                print('nms_thresh', self.nms_thresh)
-                print('top_k', self.top_k)
                 ids, count = nms(boxes, scores, self.nms_thresh, self.top_k)
                 output[i, cl, :count] = \
                     torch.cat((scores[ids[:count]].unsqueeze(1),
